@@ -1,0 +1,739 @@
+import React, { useState, useEffect } from 'react';
+import { ChevronRight, Trophy, Book, Cog, Zap, Wrench, Code, Target, Star, Award, CheckCircle, User, Users, ShoppingCart, Settings, LogOut, Plus, Trash2, Edit3, Eye, Coins, Package } from 'lucide-react';
+
+const RoboticsLearningApp = () => {
+  const [currentView, setCurrentView] = useState('login');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [selectedSkill, setSelectedSkill] = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  // Base de données simulée en mémoire
+  const [users, setUsers] = useState([
+    { id: 1, username: 'admin', password: 'admin123', role: 'admin', name: 'Administrateur', points: 0 },
+    { id: 2, username: 'animateur1', password: 'anim123', role: 'animateur', name: 'Jean Dupont', points: 0 },
+    { id: 3, username: 'enfant1', password: 'enfant123', role: 'enfant', name: 'Emma Martin', points: 500, animateurId: 2 },
+    { id: 4, username: 'enfant2', password: 'enfant123', role: 'enfant', name: 'Lucas Petit', points: 320, animateurId: 2 }
+  ]);
+
+  const [userProgress, setUserProgress] = useState({
+    3: { 'cahier': 60, 'algo-basic': 40 },
+    4: { 'organigramme': 80, 'capteurs-go': 20 }
+  });
+
+  const [shopItems, setShopItems] = useState([
+    { id: 1, name: 'Badge VEX Champion', price: 100, description: 'Badge collector officiel VEX', category: 'badge', image: '🏆' },
+    { id: 2, name: 'Kit capteurs bonus', price: 300, description: 'Capteurs supplémentaires pour projets', category: 'materiel', image: '📡' },
+    { id: 3, name: 'Temps robot supplémentaire', price: 150, description: '1h de temps robot en plus', category: 'temps', image: '⏰' },
+    { id: 4, name: 'Stickers robotique', price: 50, description: 'Pack de stickers cool', category: 'fun', image: '🌟' }
+  ]);
+
+  const [purchases, setPurchases] = useState([]);
+
+  // Structure des compétences (identique à avant)
+  const skillsData = {
+    level0: {
+      name: "Niveau 0 - Fondamentaux",
+      color: "#8B5CF6",
+      skills: [
+        { id: "cahier", name: "Cahier d'ingénieur", icon: Book, description: "Apprendre à documenter ses projets et expériences" },
+        { id: "organigramme", name: "Organigrammes", icon: Target, description: "Comprendre et créer des diagrammes logiques" },
+        { id: "bonnes-pratiques", name: "Bonnes pratiques VEX", icon: CheckCircle, description: "Sécurité et méthodologie en robotique" }
+      ]
+    },
+    vexGo: {
+      name: "VEX GO Robotique",
+      color: "#10B981",
+      skills: [
+        { id: "algo-basic", name: "Algorithmes basiques", icon: Code, description: "Séquences, boucles simples, conditions" },
+        { id: "capteurs-go", name: "Capteurs VEX GO", icon: Zap, description: "Capteurs de couleur, distance, gyroscope" },
+        { id: "moteurs-go", name: "Moteurs VEX GO", icon: Cog, description: "Contrôle des moteurs et servomoteurs" }
+      ]
+    },
+    vexIq: {
+      name: "VEX IQ Robotique",
+      color: "#F59E0B",
+      skills: [
+        { id: "algo-advanced", name: "Algorithmes avancés", icon: Code, description: "Fonctions, variables, structures complexes" },
+        { id: "capteurs-iq", name: "Capteurs VEX IQ", icon: Zap, description: "Capteurs ultrasoniques, optiques, inertiels" },
+        { id: "moteurs-iq", name: "Moteurs VEX IQ", icon: Cog, description: "Moteurs intelligents et encodeurs" }
+      ]
+    },
+    advanced: {
+      name: "Spécialisations",
+      color: "#EF4444",
+      branches: [
+        { id: "mecanique", name: "Mécanique", icon: Wrench, description: "Transmission, engrenages, structures" },
+        { id: "programmation", name: "Programmation", icon: Code, description: "Langages avancés, IA, vision" },
+        { id: "electricite", name: "Électricité", icon: Zap, description: "Circuits, alimentation, sécurité" },
+        { id: "electronique", name: "Électronique", icon: Target, description: "Composants, PCB, microcontrôleurs" }
+      ]
+    }
+  };
+
+  const challengesData = {
+    "cahier": [
+      { id: "ch1", title: "Premier carnet", description: "Créer sa première page de cahier d'ingénieur", points: 100 },
+      { id: "ch2", title: "Documentation complète", description: "Documenter un projet complet avec schémas", points: 200 }
+    ],
+    "algo-basic": [
+      { id: "ch1", title: "Ma première séquence", description: "Programmer le robot pour avancer en ligne droite", points: 150 },
+      { id: "ch2", title: "Boucle infinie", description: "Créer un programme qui fait tourner le robot en boucle", points: 200 }
+    ]
+  };
+
+  // Fonctions utilitaires
+  const login = (username, password) => {
+    const user = users.find(u => u.username === username && u.password === password);
+    if (user) {
+      setCurrentUser(user);
+      setCurrentView(user.role === 'enfant' ? 'map' : 'dashboard');
+      return true;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setCurrentView('login');
+  };
+
+  const getSkillProgress = (skillId, userId = null) => {
+    const targetUserId = userId || currentUser?.id;
+    return userProgress[targetUserId]?.[skillId] || 0;
+  };
+
+  const getUserPoints = (userId = null) => {
+    const targetUserId = userId || currentUser?.id;
+    const user = users.find(u => u.id === targetUserId);
+    return user?.points || 0;
+  };
+
+  const addPoints = (userId, points) => {
+    setUsers(users.map(u => u.id === userId ? {...u, points: u.points + points} : u));
+  };
+
+  const validateChallenge = (studentId, skillId, points) => {
+    // Ajouter les points à l'étudiant
+    addPoints(studentId, points);
+    
+    // Mettre à jour la progression
+    setUserProgress(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId],
+        [skillId]: Math.min(100, (prev[studentId]?.[skillId] || 0) + 20)
+      }
+    }));
+  };
+
+  // Composant de connexion
+  const LoginPage = () => {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const handleLogin = (e) => {
+      e.preventDefault();
+      if (login(username, password)) {
+        setError('');
+      } else {
+        setError('Nom d\'utilisateur ou mot de passe incorrect');
+      }
+    };
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-xl w-96">
+          <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">Club Robotique</h1>
+          
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
+          
+          <form onSubmit={handleLogin}>
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Nom d'utilisateur
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+                required
+              />
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Mot de passe
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+                required
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Se connecter
+            </button>
+          </form>
+          
+          <div className="mt-6 text-sm text-gray-600">
+            <p><strong>Comptes de démonstration :</strong></p>
+            <p>Admin : admin / admin123</p>
+            <p>Animateur : animateur1 / anim123</p>
+            <p>Enfant : enfant1 / enfant123</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Navigation principale
+  const Navigation = () => {
+    return (
+      <nav className="bg-white shadow-md px-6 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold text-gray-800">Club Robotique</h1>
+          {currentUser.role === 'enfant' && (
+            <div className="flex items-center gap-2 bg-yellow-100 px-3 py-1 rounded-full">
+              <Coins size={16} className="text-yellow-600" />
+              <span className="font-bold text-yellow-800">{getUserPoints()} points</span>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <span className="text-gray-600">Bonjour, {currentUser.name}</span>
+          
+          {currentUser.role === 'enfant' && (
+            <>
+              <button
+                onClick={() => setCurrentView('map')}
+                className={`px-4 py-2 rounded-lg ${currentView === 'map' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                Carte
+              </button>
+              <button
+                onClick={() => setCurrentView('shop')}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 ${currentView === 'shop' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                <ShoppingCart size={16} />
+                Shop
+              </button>
+            </>
+          )}
+          
+          {(currentUser.role === 'admin' || currentUser.role === 'animateur') && (
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className={`px-4 py-2 rounded-lg ${currentView === 'dashboard' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+            >
+              Tableau de bord
+            </button>
+          )}
+          
+          <button
+            onClick={logout}
+            className="text-gray-600 hover:text-red-600 flex items-center gap-2"
+          >
+            <LogOut size={16} />
+            Déconnexion
+          </button>
+        </div>
+      </nav>
+    );
+  };
+
+  // Dashboard admin/animateur
+  const Dashboard = () => {
+    const [activeTab, setActiveTab] = useState('students');
+    const [newUser, setNewUser] = useState({ username: '', password: '', name: '', role: 'enfant' });
+    const [newItem, setNewItem] = useState({ name: '', price: '', description: '', category: 'badge' });
+
+    const myStudents = currentUser.role === 'animateur' 
+      ? users.filter(u => u.role === 'enfant' && u.animateurId === currentUser.id)
+      : users.filter(u => u.role === 'enfant');
+
+    const animators = users.filter(u => u.role === 'animateur');
+
+    const createUser = (e) => {
+      e.preventDefault();
+      const newId = Math.max(...users.map(u => u.id)) + 1;
+      const user = {
+        ...newUser,
+        id: newId,
+        points: 0,
+        animateurId: newUser.role === 'enfant' ? currentUser.id : null
+      };
+      setUsers([...users, user]);
+      setNewUser({ username: '', password: '', name: '', role: 'enfant' });
+    };
+
+    const createShopItem = (e) => {
+      e.preventDefault();
+      const newId = Math.max(...shopItems.map(i => i.id)) + 1;
+      const item = {
+        ...newItem,
+        id: newId,
+        price: parseInt(newItem.price),
+        image: '🎁'
+      };
+      setShopItems([...shopItems, item]);
+      setNewItem({ name: '', price: '', description: '', category: 'badge' });
+    };
+
+    return (
+      <div className="p-6">
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-800 mb-6">
+            {currentUser.role === 'admin' ? 'Administration' : 'Mes Élèves'}
+          </h1>
+          
+          <div className="bg-white rounded-lg shadow-md">
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex">
+                <button
+                  onClick={() => setActiveTab('students')}
+                  className={`py-4 px-6 text-sm font-medium ${activeTab === 'students' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <Users className="inline mr-2" size={16} />
+                  {currentUser.role === 'admin' ? 'Utilisateurs' : 'Mes élèves'}
+                </button>
+                
+                {currentUser.role === 'admin' && (
+                  <button
+                    onClick={() => setActiveTab('shop')}
+                    className={`py-4 px-6 text-sm font-medium ${activeTab === 'shop' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    <Package className="inline mr-2" size={16} />
+                    Gestion Shop
+                  </button>
+                )}
+              </nav>
+            </div>
+            
+            <div className="p-6">
+              {activeTab === 'students' && (
+                <div>
+                  {currentUser.role === 'admin' && (
+                    <div className="mb-8 bg-gray-50 p-6 rounded-lg">
+                      <h3 className="text-lg font-bold mb-4">Créer un utilisateur</h3>
+                      <form onSubmit={createUser} className="grid grid-cols-2 gap-4">
+                        <input
+                          type="text"
+                          placeholder="Nom d'utilisateur"
+                          value={newUser.username}
+                          onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                          className="px-3 py-2 border rounded-lg"
+                          required
+                        />
+                        <input
+                          type="password"
+                          placeholder="Mot de passe"
+                          value={newUser.password}
+                          onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                          className="px-3 py-2 border rounded-lg"
+                          required
+                        />
+                        <input
+                          type="text"
+                          placeholder="Nom complet"
+                          value={newUser.name}
+                          onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                          className="px-3 py-2 border rounded-lg"
+                          required
+                        />
+                        <select
+                          value={newUser.role}
+                          onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                          className="px-3 py-2 border rounded-lg"
+                        >
+                          <option value="enfant">Enfant</option>
+                          <option value="animateur">Animateur</option>
+                        </select>
+                        <button
+                          type="submit"
+                          className="col-span-2 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600"
+                        >
+                          <Plus className="inline mr-2" size={16} />
+                          Créer l'utilisateur
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                  
+                  <div className="grid gap-4">
+                    {myStudents.map(student => (
+                      <div key={student.id} className="border rounded-lg p-4 flex justify-between items-center">
+                        <div>
+                          <h4 className="font-bold">{student.name}</h4>
+                          <p className="text-gray-600">@{student.username} • {student.points} points</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedStudent(student);
+                              setCurrentView('student-detail');
+                            }}
+                            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                          >
+                            <Eye size={16} className="inline mr-2" />
+                            Voir détails
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {activeTab === 'shop' && currentUser.role === 'admin' && (
+                <div>
+                  <div className="mb-8 bg-gray-50 p-6 rounded-lg">
+                    <h3 className="text-lg font-bold mb-4">Ajouter un objet au shop</h3>
+                    <form onSubmit={createShopItem} className="grid grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        placeholder="Nom de l'objet"
+                        value={newItem.name}
+                        onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                        className="px-3 py-2 border rounded-lg"
+                        required
+                      />
+                      <input
+                        type="number"
+                        placeholder="Prix en points"
+                        value={newItem.price}
+                        onChange={(e) => setNewItem({...newItem, price: e.target.value})}
+                        className="px-3 py-2 border rounded-lg"
+                        required
+                      />
+                      <input
+                        type="text"
+                        placeholder="Description"
+                        value={newItem.description}
+                        onChange={(e) => setNewItem({...newItem, description: e.target.value})}
+                        className="px-3 py-2 border rounded-lg"
+                        required
+                      />
+                      <select
+                        value={newItem.category}
+                        onChange={(e) => setNewItem({...newItem, category: e.target.value})}
+                        className="px-3 py-2 border rounded-lg"
+                      >
+                        <option value="badge">Badge</option>
+                        <option value="materiel">Matériel</option>
+                        <option value="temps">Temps</option>
+                        <option value="fun">Fun</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="col-span-2 bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600"
+                      >
+                        <Plus className="inline mr-2" size={16} />
+                        Ajouter au shop
+                      </button>
+                    </form>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {shopItems.map(item => (
+                      <div key={item.id} className="border rounded-lg p-4">
+                        <div className="text-2xl mb-2">{item.image}</div>
+                        <h4 className="font-bold">{item.name}</h4>
+                        <p className="text-gray-600 text-sm">{item.description}</p>
+                        <p className="text-green-600 font-bold mt-2">{item.price} points</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Détail d'un étudiant
+  const StudentDetail = () => {
+    const pendingChallenges = [
+      { id: 1, skillName: 'Cahier d\'ingénieur', challengeName: 'Premier carnet', points: 100 },
+      { id: 2, skillName: 'Algorithmes basiques', challengeName: 'Ma première séquence', points: 150 }
+    ];
+
+    return (
+      <div className="p-6">
+        <div className="max-w-4xl mx-auto">
+          <button
+            onClick={() => setCurrentView('dashboard')}
+            className="mb-6 text-blue-600 hover:text-blue-800 flex items-center gap-2"
+          >
+            ← Retour au tableau de bord
+          </button>
+          
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 className="text-3xl font-bold text-gray-800">{selectedStudent?.name}</h1>
+            <p className="text-gray-600">@{selectedStudent?.username} • {selectedStudent?.points} points</p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold mb-4">Défis en attente de validation</h2>
+              <div className="space-y-4">
+                {pendingChallenges.map(challenge => (
+                  <div key={challenge.id} className="border rounded-lg p-4 flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold">{challenge.challengeName}</h4>
+                      <p className="text-gray-600">{challenge.skillName}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-600 font-bold">{challenge.points} pts</span>
+                      <button
+                        onClick={() => validateChallenge(selectedStudent.id, 'cahier', challenge.points)}
+                        className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                      >
+                        Valider
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold mb-4">Progression des compétences</h2>
+              <div className="space-y-4">
+                {Object.entries(userProgress[selectedStudent?.id] || {}).map(([skillId, progress]) => {
+                  const skillName = Object.values(skillsData).flatMap(level => 
+                    level.skills || level.branches || []
+                  ).find(skill => skill.id === skillId)?.name || skillId;
+                  
+                  return (
+                    <div key={skillId}>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm font-medium">{skillName}</span>
+                        <span className="text-sm text-gray-600">{progress}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Shop pour les enfants
+  const Shop = () => {
+    const userPoints = getUserPoints();
+    
+    const buyItem = (item) => {
+      if (userPoints >= item.price) {
+        setUsers(users.map(u => 
+          u.id === currentUser.id 
+            ? {...u, points: u.points - item.price}
+            : u
+        ));
+        setPurchases([...purchases, { userId: currentUser.id, itemId: item.id, date: new Date() }]);
+        alert(`Félicitations ! Tu as acheté ${item.name} !`);
+      } else {
+        alert('Tu n\'as pas assez de points pour cet achat.');
+      }
+    };
+
+    return (
+      <div className="p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="mb-6 text-center">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Boutique Robotique</h1>
+            <div className="flex items-center justify-center gap-2 bg-yellow-100 px-4 py-2 rounded-full inline-flex">
+              <Coins size={20} className="text-yellow-600" />
+              <span className="font-bold text-yellow-800">{userPoints} points disponibles</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {shopItems.map(item => (
+              <div key={item.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                <div className="text-4xl mb-4 text-center">{item.image}</div>
+                <h3 className="font-bold text-lg mb-2">{item.name}</h3>
+                <p className="text-gray-600 text-sm mb-4">{item.description}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-2xl font-bold text-green-600">{item.price} pts</span>
+                  <button
+                    onClick={() => buyItem(item)}
+                    disabled={userPoints < item.price}
+                    className={`px-4 py-2 rounded-lg font-bold ${
+                      userPoints >= item.price
+                        ? 'bg-blue-500 text-white hover:bg-blue-600'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Acheter
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Composant carte des compétences (simplifié pour l'espace)
+  const SkillCircle = ({ skill, level, position }) => {
+    const progress = getSkillProgress(skill.id);
+    const size = 80 + (progress * 0.4);
+    const IconComponent = skill.icon;
+    
+    return (
+      <div
+        className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 hover:scale-110"
+        style={{ left: `${position.x}%`, top: `${position.y}%`, width: `${size}px`, height: `${size}px` }}
+        onClick={() => {
+          setSelectedSkill({...skill, level});
+          setCurrentView('course');
+        }}
+      >
+        <div
+          className="w-full h-full rounded-full flex items-center justify-center text-white shadow-lg relative overflow-hidden"
+          style={{ backgroundColor: skillsData[level].color }}
+        >
+          <IconComponent size={size * 0.4} />
+          <svg className="absolute inset-0 w-full h-full transform -rotate-90">
+            <circle cx="50%" cy="50%" r="45%" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="3" />
+            <circle cx="50%" cy="50%" r="45%" fill="none" stroke="#fff" strokeWidth="3" strokeDasharray={`${progress * 2.83} 283`} className="transition-all duration-500" />
+          </svg>
+          {progress > 0 && (
+            <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+              {Math.floor(progress / 20) + 1}
+            </div>
+          )}
+        </div>
+        <div className="text-center mt-2 text-sm font-medium text-gray-700">{skill.name}</div>
+      </div>
+    );
+  };
+
+  const SkillMap = () => {
+    const positions = {
+      level0: [{ x: 20, y: 20 }, { x: 50, y: 15 }, { x: 80, y: 20 }],
+      vexGo: [{ x: 15, y: 40 }, { x: 45, y: 35 }, { x: 75, y: 40 }],
+      vexIq: [{ x: 20, y: 60 }, { x: 50, y: 55 }, { x: 80, y: 60 }],
+      advanced: [{ x: 15, y: 80 }, { x: 35, y: 85 }, { x: 65, y: 85 }, { x: 85, y: 80 }]
+    };
+
+    return (
+      <div className="relative w-full h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+        <div className="absolute top-6 left-1/2 transform -translate-x-1/2 text-center">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">Carte des Compétences Robotique</h1>
+          <p className="text-gray-600">Clique sur une compétence pour commencer ton apprentissage !</p>
+        </div>
+
+        {Object.entries(skillsData).map(([levelKey, levelData]) => (
+          <div key={levelKey}>
+            {(levelData.skills || levelData.branches || []).map((skill, index) => (
+              <SkillCircle 
+                key={skill.id}
+                skill={skill}
+                level={levelKey}
+                position={positions[levelKey][index]}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const CoursePage = () => {
+    const challenges = challengesData[selectedSkill?.id] || [];
+    
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <button onClick={() => setCurrentView('map')} className="mb-4 text-blue-600 hover:text-blue-800 flex items-center gap-2">
+              ← Retour à la carte
+            </button>
+            <div className="flex items-center gap-4">
+              {selectedSkill?.icon && <selectedSkill.icon size={48} className="text-blue-600" />}
+              <div>
+                <h1 className="text-3xl font-bold text-gray-800">{selectedSkill?.name}</h1>
+                <p className="text-gray-600 mt-2">{selectedSkill?.description}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6">
+            <h2 className="text-2xl font-bold text-gray-800">Défis à réaliser</h2>
+            {challenges.length > 0 ? challenges.map((challenge) => (
+              <div key={challenge.id} className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{challenge.title}</h3>
+                    <p className="text-gray-600 mt-2">{challenge.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-yellow-600">
+                    <Star size={20} />
+                    <span className="font-bold">{challenge.points} pts</span>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                    Commencer le défi
+                  </button>
+                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    Demander validation
+                  </button>
+                </div>
+              </div>
+            )) : (
+              <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                <p className="text-gray-500">Les défis pour cette compétence sont en cours de préparation...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="font-sans min-h-screen bg-gray-100">
+      {currentView === 'login' && <LoginPage />}
+      
+      {currentView !== 'login' && (
+        <>
+          <Navigation />
+          {currentView === 'map' && <SkillMap />}
+          {currentView === 'course' && <CoursePage />}
+          {currentView === 'shop' && <Shop />}
+          {currentView === 'dashboard' && <Dashboard />}
+          {currentView === 'student-detail' && <StudentDetail />}
+        </>
+      )}
+    </div>
+  );
+};
+
+export default RoboticsLearningApp;
